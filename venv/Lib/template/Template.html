@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html>
+<head>
+ <title>easyJet Airways</title>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+    <meta charset="utf-8">
+  <!--Css style to design the HTML contents in the Website-->
+    <style>
+      #map {
+        height: 100%;
+      }
+
+      html, body {
+         font-family: Arial, Helvetica, sans-serif;
+         height: 100%;
+         margin: 0;
+         padding: 0;
+      }
+    #jname {
+       width: auto;
+      padding: 12px 20px;
+      margin: 8px;
+       display: inline-block;
+       border: 2px solid #ccc;
+      box-sizing: border-box;
+
+   }
+
+   button {
+   background-color: #4CAF50;
+  color: white;
+  padding: 14px 20px;
+  margin: 8px 0;
+  margin-left: 100px;
+  border-radius: 30px;
+  cursor: pointer;
+  width: 20%;
+
+}
+
+button:hover {
+   opacity: 0.8;
+
+}
+span.psw {
+  padding-top: 16px;
+}
+    </style>
+
+   <!--JavaScript Files For Map and Button Activities-->
+    <script>
+          var map;
+          var markerpoint=[];
+          pos=0;
+
+          function initializeMap(){     //Function For Initializing Map
+                   map = new google.maps.Map(document.getElementById('map'), {
+                  zoom: 6,
+                  center: { lat: -25.363882, lng: 131.044922 },
+                  mapTypeId: google.maps.MapTypeId.ROADMAP
+              });
+              addmarker(map);
+            }
+
+          function addmarker(map){        //Function for the marker on clicklistener in the map
+             var flightPlanCoordinates=[];
+             map.addListener('click', function (e) {
+                  placeMarkerAndPanTo(e.latLng, map);
+                  flightPlanCoordinates.push(e.latLng);
+                  //objtostr(e.latLng);
+                  var flightPath = new google.maps.Polyline({
+                      path: flightPlanCoordinates,
+                      strokeColor: "#FF0000",
+                      strokeOpacity: 1.0,
+                      strokeWeight: 2
+                  });
+                  flightPath.setMap(map);
+              });
+             markerpoint=flightPlanCoordinates;
+
+          }
+          function placeMarkerAndPanTo(latLng, map) {    //Function for changing the Map position along the marker in the Map
+              var marker = new google.maps.Marker({
+                  position: latLng,
+                  map: map
+              });
+              map.panTo(latLng);
+          }
+
+          function savejourney(){      //Function for the Save journey action After clicking the Save Journey Button on client side.
+                var name=document.getElementById("jname").value;
+                if ( name!=''  && markerpoint.length!=0) {   //Send data to server only if markers are marked and journey name is entered.
+                    var myxml = "<journeys>";         //XML file Creation
+                    myxml += "<journey name =\"" + name + "\">";
+                    for (var i = 0; i < markerpoint.length; i++) {
+                        myxml += "<journeyleg>";
+                        myxml += "<position>" + i + "</position>";
+                        myxml += "<latlng>" + markerpoint[i].lat() + "," + markerpoint[i].lng() + "</latlng>";
+                        myxml += "</journeyleg>";
+                    }
+                    myxml += "</journey>";
+                    myxml += "</journeys>";
+                    var xhttp;
+
+                    // Starting of Application of AJAX Web Service for sending Journey in XML object.
+                    xhttp = new XMLHttpRequest();
+                    xhttp.onreadystatechange = function () {
+
+                    };
+                    xhttp.open("POST", "http://localhost:8080/savejourney?journey=" + myxml, true);
+                    xhttp.send();
+                    //Ending of AJAX Web Service
+                    document.getElementById('jname').value='';
+                    clearmap();
+                }
+
+                else if(markerpoint.length==0){
+                    alert("Journey has not been marked in the map");
+                }
+                else if(name=='') {
+                    alert("Journey Name field is Empty");
+                }
+                return 1;
+
+          }
+
+          function clearmap() {     //Function for the clear map action After clicking the Clear Journey Button on client side
+              var map = new google.maps.Map(document.getElementById('map'), {    //Load a fresh map
+                 zoom: 6,
+                 center: { lat: -25.363882, lng: 131.044922 },
+                  mapTypeId: google.maps.MapTypeId.ROADMAP
+              });
+              document.getElementById("jname").value='';
+              addmarker(map);
+        // window.location='http://localhost:8080';
+          }
+   </script>
+
+   <script>
+
+        /* var txt = [];
+         j=0;*/
+      function getjourney() {    //Function for the Retreiving the Journey data and plott in map after clicking the Get Journey Button on client side
+         // window.location = 'http://localhost:8080';
+          getresponse();
+      }
+         function getresponse() {
+
+          var txt = [];
+         j=0;
+          var linearray=[];
+        var journeyname=document.getElementById("jname").value;
+        if (journeyname!='') {   //Request Server if only journey name is entered.
+            var xhttp, xmlDoc, x, i;
+            //Starting of AJAX Web Service For sending journeyname and Retreiving XML object from the web server.
+            xhttp = new XMLHttpRequest();
+            xhttp.onreadystatechange= function () {
+                if (this.readyState == 4 && this.status == 200) {
+                    var parser = new DOMParser();
+                    var xmlDoc = parser.parseFromString(xhttp.responseText, "application/xml");
+                    x = xmlDoc.getElementsByTagName("latlng");
+                    for (i = 0; i < x.length; i++) {
+                        var location=x[i].childNodes[0].nodeValue;
+                         var latlang = location.split(',');
+                            lat=parseFloat(latlang[0]);
+                             lang=parseFloat(latlang[1]);
+                            linearray.push(new google.maps.LatLng(lat, lang));
+                    }
+                    var map = new google.maps.Map(document.getElementById('map'), {
+                         zoom: 6,
+                        center: new google.maps.LatLng(lat, lang),
+                        mapTypeId: google.maps.MapTypeId.ROADMAP
+                    });
+
+                    for (i = 0; i < linearray.length; i++) {
+                        var marker = new google.maps.Marker({
+                            position: linearray[i],
+                            map: map
+                        });
+                       // map.panTo(linearray[i]);
+                    }
+                    polylineplot(linearray,map);
+                    function polylineplot(linearray,map)
+                     {
+                        var flightPath = new google.maps.Polyline({
+                            map: map,
+                            path: linearray,
+                            strokeColor: "#FF0000",
+                            strokeOpacity: 1.0,
+                            strokeWeight: 2
+                            });
+                        flightLines.setMap(map);
+                    }
+
+
+               }
+                else if(this.status==500 && this.readyState==4) {
+                    alert("Journey Name does not exists");
+                }
+            };
+            xhttp.open("GET", "http://localhost:8080/getjourney?journey=" + journeyname, true);
+            xhttp.send();
+            //Ending of AJAX Web Service.
+
+            document.getElementById("jname").value = "";
+            return 1;
+        }
+       else {
+            alert("The Journey Name Field is empty");
+        }
+      }
+
+   </script>
+</head>
+
+<!--HTML codes for defining the Text field, Buttons, and map-->
+<body>
+<div style="background: burlywood;">
+
+   <center><h1 style="font-family: 'Californian FB'; font-size: 70px; color: brown;">easyJet Plan Journey</h1></center>
+    <center>
+   <label style="size:50px;"><b>Enter Journey Name: </b></label>
+    <input type="text" id="jname"/>
+      <br>
+   <button id="btnget" onclick="getjourney()">Get Journey</button>
+      <br>
+   <button id="btnsave" onclick="savejourney()">Save journey</button>
+      <br>
+   <button id="btnclear" onclick="clearmap()">Clear Map</button>
+   </center>
+</div>
+
+<div id="map"></div> <!--A seperate Division to show the map-->
+
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCO3hE4bE7WV7mGuXL4kn9caoWI44tD8Ic&callback=initializeMap"
+              async defer></script>  <!--The script to initialize the map in the website Using provided Google Map API Key-->
+</body>
+</html>
